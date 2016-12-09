@@ -6,8 +6,10 @@
 
 
 
-int **buffer1;
-int **buffer2;
+int *buffer1;
+char **buffer2;
+int tam_buffer;
+int Nnumeros=20;
 
 
 sem_t availableSpaceBuffer1;
@@ -44,8 +46,8 @@ void *productor(void *arg) {
   int nextToFillBuffer1 = 0;
   // Productor loop
   while (1) {
-    while (1) {
-      int numero = rand () % (0-99999+1) + 99999;
+      srand(time(NULL));
+      int numero = rand()%100000;
       if (numbersCounter != Nnumeros) {
         sem_wait(&availableSpaceBuffer1);
         buffer1[nextToFillBuffer1]=numero;
@@ -58,8 +60,7 @@ void *productor(void *arg) {
     }
     fflush(stdout);
     pthread_exit(NULL);
-  }
-}
+ }
 //------------------------------------------------------------------------------
 
 void *consumer(void *arg) {
@@ -68,7 +69,7 @@ void *consumer(void *arg) {
   int consumerCounter = 0;
   // Declare variable nextToFillBuffer2
   int nextToFillBuffer2 = 0;
-  int resultado;
+  char resultado[20];
   int numero;
   // Loop
   while (1) {
@@ -88,9 +89,9 @@ void *consumer(void *arg) {
     // Wait for available space in buffer2
     sem_wait(&availableSpaceBuffer2);
     // Save result in Buffer2
-    buffer2[nextToFillBuffer2]=resultado;
+    strcpy(buffer2[nextToFillBuffer2], resultado);
     // Update nextToFillBuffer2 var
-    nextToFillBuffer2 = (nextToFillBuffer2 + 1) % 5;
+    nextToFillBuffer2 = (nextToFillBuffer2 + 1) % tam_buffer;
     sem_post(&availableDataBuffer2);
     consumerCounter = consumerCounter + 1;
     if (consumerCounter == Nnumeros) {
@@ -102,7 +103,27 @@ void *consumer(void *arg) {
 }
 //------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------
+
 int main(){
+   int i;
+
+   tam_buffer= 10;
+
+   // Create space for circular buffers
+   buffer1 = (int*)malloc(tam_buffer *  sizeof (int));
+   if (NULL==buffer1) {
+     perror("Reserva de espacio para Buffer1 malo");
+     return 0;
+   }
+
+
+   if ((buffer2 = (char**)malloc(tam_buffer* sizeof (char*))) == NULL) {
+     perror("Reserva de espacio para Buffer1 malo");
+     return 0;
+   }
+
+
 
 
 
