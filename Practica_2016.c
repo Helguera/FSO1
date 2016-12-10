@@ -6,11 +6,13 @@
 
 
 
+
 int *buffer1;
 char **buffer2;
 int tam_buffer;
-int Nnumeros=20;
+int Nnumeros=1000;
 
+FILE *archivo;
 
 sem_t availableSpaceBuffer1;
 sem_t availableDataBuffer1;
@@ -45,11 +47,13 @@ void *productor(void *arg) {
   // circular buffer1.
   int nextToFillBuffer1 = 0;
   // Productor loop
+  srand(time(NULL));
   while (1) {
-      srand(time(NULL));
+
       int numero = rand()%100000;
       if (numbersCounter != Nnumeros) {
         sem_wait(&availableSpaceBuffer1);
+        //printf("nextToFillBuffer1 --> %d\n",nextToFillBuffer1 );
         buffer1[nextToFillBuffer1]=numero;
         nextToFillBuffer1 = (nextToFillBuffer1 + 1) % tam_buffer;
         sem_post(&availableDataBuffer1);
@@ -102,13 +106,48 @@ void *consumer(void *arg) {
   pthread_exit(NULL);
 }
 //------------------------------------------------------------------------------
+void *finalConsumer(void *arg) {
+  int finalConsumerCounter = 0;
+  // Declare nextToEmptyBuffer2. Value = 0.
+  int nextToEmptyBuffer2 = 0;
+  // Open file
+  archivo= fopen("Results.txt", "w");
+  fclose(archivo);
+  // Loop
+  while (1) {
+    char str[6];
+    archivo = fopen("Results.txt", "a");
+    // Wait for available data in buffer2
+    sem_wait(&availableDataBuffer2);
+    // Save buffer1[nextToEmptyBuffer2] in data var
+    strcpy(str, buffer2[nextToEmptyBuffer2]);
+    // Signal: available space in buffer2
+    sem_post(&availableSpaceBuffer2);
+    // Update nextToEmptyBuffer2
+    //printf("nextToEmptyBuffer2 --> %d\n",nextToEmptyBuffer2 );
+    nextToEmptyBuffer2 = (nextToEmptyBuffer2 + 1) % tam_buffer;
+    finalConsumerCounter = finalConsumerCounter + 1;
+    // Add data var in the final text file
+    fprintf(archivo, "%s\n", str);
+    fclose(archivo);
+
+    if (finalConsumerCounter == Nnumeros) {
+      break;
+    }
+  }
+  fflush(stdout);
+  pthread_exit(NULL);
+}
+
+
+
 
 //------------------------------------------------------------------------------
 
 int main(){
    int i;
 
-   tam_buffer= 10;
+   tam_buffer= 500;
 
    // Create space for circular buffers
    buffer1 = (int*)malloc(tam_buffer *  sizeof (int));
@@ -122,6 +161,35 @@ int main(){
      perror("Reserva de espacio para Buffer1 malo");
      return 0;
    }
+
+   for (i=0; i<tam_buffer; i++){
+      buffer2[i] = (int *)malloc (25*sizeof(int));
+   }
+
+   sem_init(&availableSpaceBuffer1, 0, tam_buffer);
+   sem_init(&availableDataBuffer1, 0, 0);
+   sem_init(&availableDataBuffer2, 0, 0);
+   sem_init(&availableSpaceBuffer2, 0, tam_buffer);
+
+   pthread_t productorThread;
+   pthread_t consumerThread;
+   pthread_t finalConsumerThread;
+
+   pthread_create(&productorThread, NULL, productor, (void *) NULL);
+   pthread_create(&consumerThread, NULL, consumer, (void *) NULL);
+   pthread_create(&finalConsumerThread, NULL, finalConsumer, (void *) NULL);
+
+   fflush(stdout);
+   pthread_join(productorThread, NULL);
+   pthread_join(consumerThread, NULL);
+   pthread_join(finalConsumerThread, NULL);
+
+   sem_destroy(&availableSpaceBuffer1);
+   sem_destroy(&availableDataBuffer1);
+   sem_destroy(&availableDataBuffer2);
+   sem_destroy(&availableSpaceBuffer2);
+
+
 
 
 
