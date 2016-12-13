@@ -11,10 +11,15 @@ int Nnumeros=1000;
 int PalabrasDelArchivo = 0;
 int PalabrasFinales;
 
+int sigPosicionParaVaciar_Buffer1 = 0;
+int ContadorDelConsumidor = 0;
+int sigPosicion_Buffer2 = 0;
+
 sem_t espacioDisponibleBuffer1;
 sem_t espacioDisponibleBuffer2;
 sem_t DatosDisponiblesBuffer1;
 sem_t DatosDisponiblesBuffer2;
+pthread_mutex_t mutex;
 
 FILE *archivo;
 
@@ -59,37 +64,44 @@ void *productor(void *arg) {
 
 void *consumidor(void *arg) {
 
-  int sigPosicionParaVaciar_Buffer1 = 0;
-  int ContadorDelConsumidor = 0;
-  int sigPosicion_Buffer2 = 0;
   char resultado[20];
   int numero;
-  
+
   while (1) {
 
-    sem_wait(&DatosDisponiblesBuffer1); // Espera a que haya espacio disponible en el B.C. 1
-
-    numero=buffer1[sigPosicionParaVaciar_Buffer1]; // Guarda el dato que ha leido
-    // Signal there is available space to write in buffer1
-    // Palindromes function. Save result in global var
-    if (esPrimo(numero)==1){
-      sprintf(resultado, "%d es primo.\n", numero);
-    } else {
-      sprintf(resultado, "%d no es primo.\n", numero);
+    pthread_mutex_lock(&mutex);
+    ContadorDelConsumidor = ContadorDelConsumidor + 1;
+    if (ContadorDelConsumidor > Nnumeros) {
+      printf("Hilo Acabado\n");
+      pthread_mutex_unlock(&mutex);
+      break;
     }
-    sigPosicionParaVaciar_Buffer1 = (sigPosicionParaVaciar_Buffer1 + 1) % tam_buffer;
+    pthread_mutex_unlock(&mutex);
+
+    sem_wait(&DatosDisponiblesBuffer1); // Espera a que haya espacio disponible en el B.C. 1
+    
+    pthread_mutex_lock(&mutex);
+    numero=buffer1[sigPosicionParaVaciar_Buffer1]; // Guarda el dato que ha leido
+    sigPosicionParaVaciar_Buffer1 = ContadorDelConsumidor % tam_buffer;
+    pthread_mutex_unlock(&mutex);
+
     sem_post(&espacioDisponibleBuffer1); // Libera el semaforo
+    
+    if (esPrimo(numero)==1){
+      sprintf(resultado, "%d es primo", numero);
+    } else {
+      sprintf(resultado, "%d no es primo", numero);
+    }
 
     sem_wait(&espacioDisponibleBuffer2); // Espera a que haya espacio disponible en el B.C. 2
-
+    
+    pthread_mutex_lock(&mutex);
     strcpy(buffer2[sigPosicion_Buffer2], resultado); // Cuando hay espacio disponible lo guarda en el BC2
-
     sigPosicion_Buffer2 = (sigPosicion_Buffer2 + 1) % tam_buffer; // Cambia la posicion del BC2
+    pthread_mutex_unlock(&mutex);
+
     sem_post(&DatosDisponiblesBuffer2); // Libera el semaforo
-    ContadorDelConsumidor = ContadorDelConsumidor + 1;
-    if (ContadorDelConsumidor == Nnumeros) {
-      break; 
-    }
+
   }
   fflush(stdout);
   pthread_exit(NULL);
@@ -134,7 +146,7 @@ void *consumidorFinal(void *arg) {
 int main(){
    int i;
 
-   tam_buffer= 500; // Elegimos un tamanio para el buffer
+   tam_buffer= Nnumeros/2; // Elegimos un tamanio para el buffer
 
    buffer1 = (int*)malloc(tam_buffer *  sizeof (int)); // Asignamos el tamanio del buffer1
    if (NULL==buffer1) {
@@ -144,30 +156,40 @@ int main(){
 
 
    if ((buffer2 = (char**)malloc(tam_buffer* sizeof (char*))) == NULL) {
-     perror("Se ha reservado mal el espacio para el buffer1");
+     perror("Se ha reservado mal el espacio para el buffer2");
      return 0;
    }
 
    for (i=0; i<tam_buffer; i++){
-      buffer2[i] = (int *)malloc (25*sizeof(int));
+      buffer2[i] = (char *)malloc (25*sizeof(char));
    }
-
+	
+   pthread_mutex_init(&mutex,NULL);
    sem_init(&espacioDisponibleBuffer1, 0, tam_buffer);  // Iniciamos los semaforos
    sem_init(&DatosDisponiblesBuffer1, 0, 0);
    sem_init(&DatosDisponiblesBuffer2, 0, 0);
    sem_init(&espacioDisponibleBuffer2, 0, tam_buffer);
 
    pthread_t Hilo_Productor;
-   pthread_t Hilo_Consumidor;
+   pthread_t Hilo_Consumidor1;
+   pthread_t Hilo_Consumidor2;
+   pthread_t Hilo_Consumidor3;
+   pthread_t Hilo_Consumidor4;
    pthread_t Hilo_consumidorFinal;
 
    pthread_create(&Hilo_Productor, NULL, productor, (void *) NULL);
-   pthread_create(&Hilo_Consumidor, NULL, consumidor, (void *) NULL);
+   pthread_create(&Hilo_Consumidor1, NULL, consumidor, (void *) NULL);
+   pthread_create(&Hilo_Consumidor2, NULL, consumidor, (void *) NULL);
+   pthread_create(&Hilo_Consumidor3, NULL, consumidor, (void *) NULL);
+   pthread_create(&Hilo_Consumidor4, NULL, consumidor, (void *) NULL);
    pthread_create(&Hilo_consumidorFinal, NULL, consumidorFinal, (void *) NULL);
 
    fflush(stdout);
    pthread_join(Hilo_Productor, NULL);  // Cambiamos la referencia de los hilos a nada
-   pthread_join(Hilo_Consumidor, NULL);
+   pthread_join(Hilo_Consumidor1, NULL);
+   pthread_join(Hilo_Consumidor2, NULL);
+   pthread_join(Hilo_Consumidor3, NULL);
+   pthread_join(Hilo_Consumidor4, NULL);
    pthread_join(Hilo_consumidorFinal, NULL);
 
    sem_destroy(&espacioDisponibleBuffer1);  // Destruimos los semaforos
@@ -176,6 +198,6 @@ int main(){
    sem_destroy(&espacioDisponibleBuffer2);
 
 
-   printf("hola"); // EL programa acaba
+   printf("\nEL programa ha finalizado\n"); // EL programa acaba
    return(0);
 }
