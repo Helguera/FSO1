@@ -45,15 +45,19 @@ void *productor(void *arg) {
   // Bucle del productor
   while (1) {
       int numero = rand()%100000;
+      int posicion = 1;
       if (PalabrasDelArchivo != Nnumeros) {
         sem_wait(&espacioDisponibleBuffer1);
         buffer1[sigPosicion_Buffer1]=numero;
         sigPosicion_Buffer1 = (sigPosicion_Buffer1 + 1) % tam_buffer1;
+        buffer1[sigPosicion_Buffer1]=posicion;
+        sigPosicion_Buffer1 = (sigPosicion_Buffer1 + 1) % tam_buffer1;
+        posicion++;
         sem_post(&DatosDisponiblesBuffer1);
       } else {
         break;
       }
-      PalabrasDelArchivo = PalabrasDelArchivo + 1;
+      PalabrasDelArchivo = PalabrasDelArchivo + 2;
     }
     fflush(stdout);
     pthread_exit(NULL);
@@ -64,7 +68,7 @@ void *consumidor(void *arg) {       //Consumidor intermedio
 
   char resultado[20];
   int numero;
-
+  int posicion;
   while (1) {
     pthread_mutex_lock(&mutex);
     ContadorDelConsumidor = ContadorDelConsumidor + 1;
@@ -79,20 +83,24 @@ void *consumidor(void *arg) {       //Consumidor intermedio
     pthread_mutex_lock(&mutex);
     numero=buffer1[sigPosicionParaVaciar_Buffer1]; // Guarda el dato que ha leido
     sigPosicionParaVaciar_Buffer1 = ContadorDelConsumidor % tam_buffer1;
+    ContadorDelConsumidor = ContadorDelConsumidor + 1;
+    posicion = buffer1[sigPosicionParaVaciar_Buffer1+1];
     pthread_mutex_unlock(&mutex);
 
     sem_post(&espacioDisponibleBuffer1); // Libera el semaforo
 
     if (esPrimo(numero)==1){
-      sprintf(resultado, "%d es primo", numero);
+      sprintf(resultado, "Generado el: %d . Numero: %d es primo", posicion, numero);
     } else {
-      sprintf(resultado, "%d no es primo", numero);
+      sprintf(resultado, "Generado el: %d . Numero: %d no es primo", posicion, numero);
     }
 
     sem_wait(&espacioDisponibleBuffer2); // Espera a que haya espacio disponible en el B.C. 2
 
     pthread_mutex_lock(&mutex);
     strcpy(buffer2[sigPosicion_Buffer2], resultado); // Cuando hay espacio disponible lo guarda en el BC2
+    sigPosicion_Buffer2 = (sigPosicion_Buffer2 + 1) % tam_buffer2; // Cambia la posicion del BC2
+    strcpy(buffer2[sigPosicion_Buffer2], posicion); // Cuando hay espacio disponible lo guarda en el BC2
     sigPosicion_Buffer2 = (sigPosicion_Buffer2 + 1) % tam_buffer2; // Cambia la posicion del BC2
     pthread_mutex_unlock(&mutex);
 
@@ -115,6 +123,10 @@ void *consumidorFinal(void *arg) {
     archivo = fopen("Salida.txt", "a");
     // Espera a que haya espacio en el buffer 2
     sem_wait(&DatosDisponiblesBuffer2);
+    strcpy(str, buffer2[sigPosicionParaVaciar_Buffer2]);
+    sigPosicionParaVaciar_Buffer2 = (sigPosicionParaVaciar_Buffer2 + 1) % tam_buffer2;
+    finalContadorDelConsumidor = finalContadorDelConsumidor + 1;
+    fprintf(archivo, "%s\n", str);
     strcpy(str, buffer2[sigPosicionParaVaciar_Buffer2]);
     sem_post(&espacioDisponibleBuffer2);
     sigPosicionParaVaciar_Buffer2 = (sigPosicionParaVaciar_Buffer2 + 1) % tam_buffer2;
