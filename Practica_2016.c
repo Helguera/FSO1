@@ -16,7 +16,7 @@ int sigPosicionParaVaciar_Buffer1 = 0;
 int ContadorDelConsumidor = 0;
 int sigPosicion_Buffer2 = 0;
 
-sem_t espacioDisponibleBuffer1;
+sem_t espacioDisponibleBuffer1;     //Semaforos que tendra el programa
 sem_t espacioDisponibleBuffer2;
 sem_t DatosDisponiblesBuffer1;
 sem_t DatosDisponiblesBuffer2;
@@ -40,16 +40,13 @@ int esPrimo(int a){
 //------------------------------------------------------------------------------
 
 void *productor(void *arg) {
-  // Declare variable which represents next position to fill in the
-  // circular buffer1.
   int sigPosicion_Buffer1 = 0;
-  // Productor loop
   srand(time(NULL));
+  // Bucle del productor
   while (1) {
       int numero = rand()%100000;
       if (PalabrasDelArchivo != Nnumeros) {
         sem_wait(&espacioDisponibleBuffer1);
-        //printf("sigPosicion_Buffer1 --> %d\n",sigPosicion_Buffer1 );
         buffer1[sigPosicion_Buffer1]=numero;
         sigPosicion_Buffer1 = (sigPosicion_Buffer1 + 1) % tam_buffer1;
         sem_post(&DatosDisponiblesBuffer1);
@@ -63,13 +60,12 @@ void *productor(void *arg) {
  }
 //------------------------------------------------------------------------------
 
-void *consumidor(void *arg) {
+void *consumidor(void *arg) {       //Consumidor intermedio
 
   char resultado[20];
   int numero;
 
   while (1) {
-
     pthread_mutex_lock(&mutex);
     ContadorDelConsumidor = ContadorDelConsumidor + 1;
     if (ContadorDelConsumidor > Nnumeros) {
@@ -109,26 +105,21 @@ void *consumidor(void *arg) {
 //------------------------------------------------------------------------------
 void *consumidorFinal(void *arg) {
   int finalContadorDelConsumidor = 0;
-  // Declare sigPosicionParaVaciar_Buffer1. Value = 0.
-  int sigPosicionParaVaciar_Buffer1 = 0;
-  // Open file
+  int sigPosicionParaVaciar_Buffer2 = 0;
+  // Abre el archivo
   archivo= fopen("Salida.txt", "w");
   fclose(archivo);
-  // Loop
+  // Bucle
   while (1) {
     char str[6];
     archivo = fopen("Salida.txt", "a");
-    // Wait for available data in buffer2
+    // Espera a que haya espacio en el buffer 2
     sem_wait(&DatosDisponiblesBuffer2);
-    // Save buffer1[sigPosicionParaVaciar_Buffer1] in data var
-    strcpy(str, buffer2[sigPosicionParaVaciar_Buffer1]);
-    // Signal: available space in buffer2
+    strcpy(str, buffer2[sigPosicionParaVaciar_Buffer2]);
     sem_post(&espacioDisponibleBuffer2);
-    // Update sigPosicionParaVaciar_Buffer1
-    //printf("sigPosicionParaVaciar_Buffer1 --> %d\n",sigPosicionParaVaciar_Buffer1 );
-    sigPosicionParaVaciar_Buffer1 = (sigPosicionParaVaciar_Buffer1 + 1) % tam_buffer1;
+    sigPosicionParaVaciar_Buffer2 = (sigPosicionParaVaciar_Buffer2 + 1) % tam_buffer2;
     finalContadorDelConsumidor = finalContadorDelConsumidor + 1;
-    // Add data var in the final text file
+    // Escribe el resultado al final del fichero
     fprintf(archivo, "%s\n", str);
     fclose(archivo);
 
@@ -214,7 +205,7 @@ int main(int argc, char *argv[]){
    sem_destroy(&espacioDisponibleBuffer2);
 
 
-   printf("\nEL programa ha finalizado\n"); // El programa acaba
+   printf("\nEl programa ha finalizado\n"); // El programa acaba
    return(0);
 
 }
