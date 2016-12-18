@@ -136,7 +136,7 @@ void *consumidorFinal(void *arg) {
 
 int main(int argc, char *argv[]){
    if (argc!=4){
-      printf("\nTiene que introducir tres argumentos\n");
+      perror("\nTiene que introducir tres argumentos\n");
       return 0;
    }
 
@@ -146,12 +146,12 @@ int main(int argc, char *argv[]){
    tam_buffer2 = atoi(argv[3]);
 
    if (tam_buffer1>Nnumeros/2 || tam_buffer2>Nnumeros/2){// Elegimos un tamanio para el buffer
-      printf("\nEl tamaño de los buffers no puede ser mayor que la mitad de los numeros\n");
+      perror("\nEl tamaño de los buffers no puede ser mayor que la mitad de los numeros\n");
       return 0;
    }
 
    if (tam_buffer1<1 || tam_buffer2<1 || Nnumeros<1){
-      printf("\nEl tamaño de los buffers no puede ser negativo o 0\n" );
+      perror("\nEl tamaño de los buffers no puede ser negativo o 0\n" );
       return 0;
    }
 
